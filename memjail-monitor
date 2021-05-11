@@ -1,0 +1,85 @@
+#!/bin/zsh
+
+#
+# display real-time stats on memory usage in a mem-jail instance
+# Usage: cgmem-monitor [jail name]
+#
+
+JAILNAME="${1:-memjail}"
+STATUSFILE="${2:-$HOME/ram/memjail.status}"
+#echo "$STATUSFILE" ; exit 0
+
+# detect cgroups v1 or v2+systemd
+if [ -d '/sys/fs/cgroup/user.slice' ]; then
+  CGROUPS=v2
+  HIGH=high
+  CURRENT=current
+  SWAP=swap
+  BASEDIR=/sys/fs/cgroup/user.slice/user-"$UID".slice
+
+elif [ -d '/sys/fs/cgroup/memory' ]; then
+  CGROUPS=v1
+  HIGH=limit_in_bytes
+  CURRENT=usage_in_bytes
+  SWAP=memsw
+  BASEDIR=/sys/fs/cgroup/memory
+
+else
+  echo 'Unknown cgroup version or configuration'
+  exit 1
+
+fi
+
+# GiB
+UNIT=$(( 1024.0 * 1024.0 * 1024.0 ))
+UNITNAME="GiB"
+FMT='%.3f'
+MAXFMT='%i'
+
+# show stats every few seconds
+while true ; do
+
+  # find the jail(s)
+  FULLPATHS=( $(find "$BASEDIR" -type d | grep "$JAILNAME") )
+
+  for FULLPATH in $FULLPATHS ; do
+    #echo "$FULLPATH"
+    CGNAME=$(basename "$FULLPATH")
+    CGBASENAME=$(echo "$CGNAME" | cut -d . -f 2)
+
+    # detect limits
+    MAXBYTES=$( cat ${FULLPATH}/memory.$HIGH )
+    MAXSWAP=$( cat ${FULLPATH}/memory.$SWAP.$HIGH )
+    if [ "$CGROUPS" = v1 ]; then
+      MAXSWAP=$(( ${MAXSWAP} - ${MAXBYTES} ))  # zero swap starts at RAM limit in v1
+    fi
+    if [ "$MAXSWAP" -lt 0 ]; then MAXSWAP=0 ; fi
+
+    # detect current resource usage
+    BYTES=$( cat ${FULLPATH}/memory.$CURRENT )
+    BSWAP=$( cat ${FULLPATH}/memory.$SWAP.$CURRENT )
+    BSWAP=$(( ${BSWAP} - ${BYTES} ))  # value includes mem+swap, but we want swap only
+    if [ "$BSWAP" -lt 0 ]; then BSWAP=0 ; fi
+
+    PX=$(( 100 * $BYTES / $MAXBYTES ))
+
+    # number of processes in the jail
+    PROCS=$( cat ${FULLPATH}/cgroup.procs | wc -l )
+    # threads
+    #PROCS=$( cat ${FULLPATH}/tasks | wc -l )
+
+    # display a report
+    echo "--- $CGBASENAME ---"
+    printf '%4i%% @ %i PIDs\n' $PX $PROCS
+    printf "$FMT / $MAXFMT ${UNITNAME}\n" $(( ${BYTES} / ${UNIT} )) $(( ${MAXBYTES} / ${UNIT} ))
+    printf "$FMT / $MAXFMT swap\n" $(( ( ${BSWAP} ) / ${UNIT} )) $(( ${MAXSWAP} / ${UNIT} ))
+    #printf "$FMT ${UNITNAME}\n" $(( ${BYTES} / ${UNIT} ))
+    #printf "$FMT swap\n" $(( ( ${BSWAP} ) / ${UNIT} ))
+
+  done | tee $STATUSFILE.in
+  # make the write atomic
+  mv -f $STATUSFILE.in $STATUSFILE
+
+  # ... and wait for the next update
+  sleep 5
+done
