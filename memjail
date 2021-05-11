@@ -1,0 +1,83 @@
+#!/bin/zsh
+#
+# mem-jail
+# Usage: mem-jail 4 google-chrome
+# (starts a new jail with limit of 4 GB RAM + 4 GB swap)
+#
+# Requires systemd (sorry)
+#
+# This might be needed in /etc/default/grub.conf (or similar):
+#   GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1
+# ... then "update-grub"
+#
+
+set -e
+#set -x
+
+# if called directly by the user, run in "parent" mode
+MODE="parent"
+# if called from ourself, set a memory limit and start the command
+if [ x"$1" = x"child" ]; then
+  MODE="child" ; shift
+fi
+
+GB_LIMIT="${1:-2}"
+CMD="${2:-$SHELL}"
+NAME="${3:-$$}"
+
+
+# if called by a user, do the outer wrapping job of starting a new jail
+if [ x"$MODE" = x"parent" ]; then
+
+  GROUP_NAME="memjail.$NAME"
+
+  echo "Starting new jail with ${GB_LIMIT} GiB limit: $GROUP_NAME"
+
+  # let systemd create a cgroup for us
+  # (otherwise, we'd end up fighting systemd for control of the processes)
+  # (it tends to silently migrate processes out of foreign cgroups and into
+  #  its own cgroups, which totally defeats the point of memjail)
+  systemd-run --user --unit="$GROUP_NAME" \
+    --pty --same-dir --wait --collect --service-type=exec \
+    "$0" child "$GB_LIMIT" "$CMD"
+
+  echo "$GROUP_NAME execution completed; jail removed."
+  exit 0
+
+fi
+
+
+# the child process's job is to set some limits and run the given command
+if [ x"$MODE" = x"child" ]; then
+
+  # detect cgroups v1 or v2+ and find the jail dir
+  if cat /proc/self/cgroup | grep memory > /dev/null ; then
+    CGROUPS=v1
+    HIGH=limit_in_bytes
+    CURRENT=usage_in_bytes
+    SWAP=memsw
+    SWAP_MULT=2
+    BASEDIR=/sys/fs/cgroup/memory/$(cat /proc/self/cgroup | grep memory | cut -d : -f 3)
+  else
+    CGROUPS=v2
+    HIGH=high
+    CURRENT=current
+    SWAP=swap
+    SWAP_MULT=1
+    BASEDIR=/sys/fs/cgroup/$(cat /proc/self/cgroup | cut -d : -f 3)
+  fi
+
+  # enable memory limiting
+  # (can't; container isn't allowed to change its own control types)
+  #echo +memory > "$BASEDIR"/cgroup.subtree_control
+
+  # RAM limit in GiB (but it can still swap)
+  echo $(( $GB_LIMIT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$HIGH
+  # RAM+swap limit in GiB
+  echo $(( $GB_LIMIT * $SWAP_MULT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$SWAP.$HIGH
+
+  # run the jail's root / init process (usually a shell)
+  exec "$CMD"
+
+fi
+
