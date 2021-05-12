@@ -1,13 +1,11 @@
 #!/bin/zsh
-
 #
-# display real-time stats on memory usage in a mem-jail instance
-# Usage: cgmem-monitor [jail name]
+# display real-time stats on memory usage of memjail instances
+# Usage: memjail-monitor [jail name]
 #
 
 JAILNAME="${1:-memjail}"
 STATUSFILE="${2:-$HOME/ram/memjail.status}"
-#echo "$STATUSFILE" ; exit 0
 
 # detect cgroups v1 or v2+systemd
 if [ -d '/sys/fs/cgroup/user.slice' ]; then
@@ -73,8 +71,6 @@ while true ; do
     printf '%4i%% @ %i PIDs\n' $PX $PROCS
     printf "$FMT / $MAXFMT ${UNITNAME}\n" $(( ${BYTES} / ${UNIT} )) $(( ${MAXBYTES} / ${UNIT} ))
     printf "$FMT / $MAXFMT swap\n" $(( ( ${BSWAP} ) / ${UNIT} )) $(( ${MAXSWAP} / ${UNIT} ))
-    #printf "$FMT ${UNITNAME}\n" $(( ${BYTES} / ${UNIT} ))
-    #printf "$FMT swap\n" $(( ( ${BSWAP} ) / ${UNIT} ))
 
   done | tee $STATUSFILE.in
   # make the write atomic

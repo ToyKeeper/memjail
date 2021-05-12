@@ -1,13 +1,14 @@
 #!/bin/zsh
 #
-# mem-jail
-# Usage: mem-jail 4 google-chrome
-# (starts a new jail with limit of 4 GB RAM + 4 GB swap)
+# memjail
+# Usage: memjail 4 google-chrome chrome
+# (starts a new jail named "chrome" with limit of 4 GB RAM + 4 GB swap,
+#  and runs the "google-chrome" command in it)
 #
 # Requires systemd (sorry)
 #
 # This might be needed in /etc/default/grub.conf (or similar):
-#   GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1
+#   GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1"
 # ... then "update-grub"
 #
 
