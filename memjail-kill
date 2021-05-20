@@ -1,0 +1,72 @@
+#!/bin/zsh
+#
+# display real-time stats on memory usage of memjail instances
+# Usage: memjail-kill SIGNAL [jail name]
+#
+
+SIGNAL="${1:-help}"
+JAILNAME="${2:-memjail}"
+
+case "$SIGNAL" in
+
+  -h|--help|help)
+    SIGNAL='list'
+    echo "memjail-kill: runs 'kill -SIGNAL' on all processes in cgroup NAME"
+    echo "Usage: $0 SIGNAL [NAME]"
+    echo "  -h  --help   shows this message"
+    echo "  -l  --list   shows memjails"
+    echo
+    echo "Memjails currently running:"
+    echo "procs\tname"
+    echo "-----\t----"
+    ;;
+
+  -l|--list|list)
+    SIGNAL='list'
+    ;;
+
+esac
+
+# detect cgroups v1 or v2+systemd
+if [ -d '/sys/fs/cgroup/user.slice' ]; then
+  CGROUPS=v2
+  BASEDIR=/sys/fs/cgroup/user.slice/user-"$UID".slice
+
+elif [ -d '/sys/fs/cgroup/memory' ]; then
+  CGROUPS=v1
+  BASEDIR=/sys/fs/cgroup/memory
+
+else
+  echo 'Unknown cgroup version or configuration'
+  exit 1
+
+fi
+
+# find the jail(s)
+FULLPATHS=( $(find "$BASEDIR" -type d | grep "$JAILNAME") )
+
+for FULLPATH in $FULLPATHS ; do
+    #echo "$FULLPATH"
+    CGNAME=$(basename "$FULLPATH")
+    CGBASENAME=$(echo "$CGNAME" | cut -d . -f 2)
+
+    # number of processes in the jail
+    PROCS=$( cat ${FULLPATH}/cgroup.procs )
+    NUMPROCS=$( echo "$PROCS" | wc -w )
+    # threads
+    #PROCS=$( cat ${FULLPATH}/tasks | wc -l )
+
+    # optionally just list the memjails available
+    if [ x"$SIGNAL" = x"list" ]; then
+      echo "$NUMPROCS\t$CGNAME"
+
+    else
+      # kill / pause / unpause the cgroup's processes
+      kill "-$SIGNAL" $(echo $PROCS)
+
+      # display a report
+      echo "sent $SIGNAL to $NUMPROCS processes in jail $CGNAME"
+
+    fi
+
+done
