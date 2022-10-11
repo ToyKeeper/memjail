@@ -28,12 +28,6 @@ else
 
 fi
 
-# GiB
-UNIT=$(( 1024.0 * 1024.0 * 1024.0 ))
-UNITNAME="GiB"
-FMT='%.3f'
-MAXFMT='%i'
-
 # show stats every few seconds
 while true ; do
 
@@ -65,6 +59,18 @@ while true ; do
     PROCS=$( cat ${FULLPATH}/cgroup.procs | wc -l )
     # threads
     #PROCS=$( cat ${FULLPATH}/tasks | wc -l )
+
+    # GiB
+    UNIT=$(( 1024.0 * 1024.0 * 1024.0 ))
+    UNITNAME="GiB"
+    FMT='%.3f'
+    MAXFMT='%i'
+    # in case the limit is under 1 GiB, use MiB
+    if [ $( printf '%i' "$UNIT" ) -gt $( cat ${FULLPATH}/memory.$HIGH ) ]; then
+      UNIT=$(( 1024.0 * 1024.0 ))
+      UNITNAME="MiB"
+      FMT='%i'
+    fi
 
     # display a report
     echo "--- $CGBASENAME ---"

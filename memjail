@@ -73,9 +73,9 @@ if [ x"$MODE" = x"child" ]; then
   #echo +memory > "$BASEDIR"/cgroup.subtree_control
 
   # RAM limit in GiB (but it can still swap)
-  echo $(( $GB_LIMIT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$HIGH
+  printf '%i\n' $(( $GB_LIMIT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$HIGH
   # RAM+swap limit in GiB
-  echo $(( $GB_LIMIT * $SWAP_MULT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$SWAP.$HIGH
+  printf '%i\n' $(( $GB_LIMIT * $SWAP_MULT * 1024 * 1024 * 1024 )) > "$BASEDIR"/memory.$SWAP.$HIGH
 
   # run the jail's root / init process (usually a shell)
   exec "$CMD"

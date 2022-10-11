@@ -22,7 +22,7 @@ Creates memory-restricted containers.
 
 Takes three parameters:
 
-  * RAM limit in GiB.
+  * RAM limit in GiB.  (can be a float, like 0.5)
   * Program to run (optional; defaults to a shell).
   * Name of this container (optional; defaults to a random number).
 
