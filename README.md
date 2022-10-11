@@ -4,7 +4,8 @@ Got a program which sucks up all the RAM and doesn't leave room for anything
 else?  I'm looking at you, Chrome.
 
 Put that misbehaving program in a memory jail.  Limit the amount of RAM it can
-use, so it won't mess with the rest of the system.
+use, so it won't mess with the rest of the system.  And pause it when it's not
+being used, so the battery will last longer.
 
 
 ## Requirements
@@ -70,6 +71,29 @@ lrwxrwxrwx 1 myuser myuser 14 Jan  1  2020 /home/myuser/ram -> /run/user/1000/
 Filesystem     1K-blocks  Used Available Use% Mounted on
 tmpfs            1601044    28   1601016   1% /run/user/1000
 ```
+
+### memjail-kill
+
+Sends a process-control signal to every process in a cgroup.  Is useful for
+pausing / unpausing Chrome to reduce power usage, or to forcefully end a
+memjail.
+
+Takes up to two parameters:
+
+  * Signal to send: STOP/CONT/INT/KILL/... or "--help" or "--list"
+  * Name of the cgroup to send signals to (default: all memjails)
+
+Example:
+
+```
+memjail-kill STOP chrome
+memjail-kill CONT chrome
+```
+
+I'd recommend binding a hotkey in your window manager to these commands, to
+make it easy to (un)pause Chrome.  Sometimes it can literally double battery
+life on a notebook, while also helping reduce CPU temperature.
+
 
 ## Why does it need SystemD?
 
